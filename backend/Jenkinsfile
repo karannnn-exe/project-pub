@@ -1,61 +1,54 @@
+
+
 pipeline {
     agent any
-
     environment {
+        AWS_DEFAULT_REGION = "us-west-1"
         AWS_ACCOUNT_ID = "571600834960"
-        AWS_REGION = "us-west-1"
-        ECR_REPO_NAME = "backend-app"
+        REPO_NAME = "backend-app"
+        REPO_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+        IMAGE_NAME = "${REPO_URI}/${REPO_NAME}:latest"
         ECS_CLUSTER = "project_dev_cluster_uw1"
         ECS_SERVICE = "backend-service"
-        IMAGE_TAG = "latest"
     }
 
     stages {
-        stage('Login to AWS ECR') {
+        stage("Build Docker Image") {
             steps {
                 script {
                     sh """
-                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+                    docker build -t ${IMAGE_NAME} .
                     """
                 }
             }
         }
 
-        stage('Build Docker Image') {
+        stage("Login & Push Docker Image to ECR") {
             steps {
                 script {
                     sh """
-                    docker build -t $ECR_REPO_NAME .
-                    docker tag $ECR_REPO_NAME:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPO_URI}
+                    docker push ${IMAGE_NAME}
+                    docker rmi -f ${IMAGE_NAME}
                     """
                 }
             }
         }
 
-        stage('Push Image to ECR') {
+        stage("Force ECS Update") {
             steps {
                 script {
                     sh """
-                    docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:$IMAGE_TAG
+                    aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment
                     """
                 }
             }
         }
+    }
 
-        stage('Force ECS Update') {
-            steps {
-                script {
-                    sh """
-                    aws ecs update-service --cluster $ECS_CLUSTER --service $ECS_SERVICE --force-new-deployment
-                    """
-                }
-            }
-        }
-
-        stage('Clean Workspace') {
-            steps {
-                cleanWs()
-            }
+    post {
+        always {
+            cleanWs()
         }
     }
 }
