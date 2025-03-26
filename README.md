@@ -1,59 +1,109 @@
-# Overview
-This repository contains a React frontend, and an Express backend that the frontend connects to.
+# DevOps Code Challenge
 
-# Objective
-Deploy the frontend and backend to somewhere publicly accessible over the internet. The AWS Free Tier should be more than sufficient to run this project, but you may use any platform and tooling you'd like for your solution.
+## Overview
+This project includes a **React frontend** and an **Express backend**, deployed using **AWS ECS (Fargate)**. Infrastructure is provisioned using **Terraform**, and **Jenkins** automates the CI/CD pipeline.
 
-Fork this repo as a base. You may change any code in this repository to suit the infrastructure you build in this code challenge.
+## Architecture
+- **Terraform** provisions AWS resources.
+- **Amazon ECS (Fargate)** runs frontend and backend services.
+- **Amazon ECR** stores container images.
+- **Application Load Balancer (ALB)** exposes services.
+- **Jenkins** handles CI/CD.
 
-# Submission
-1. A github repo that has been forked from this repo with all your code.
-2. Modify this README file with instructions for:
-* Any tools needed to deploy your infrastructure
-* All the steps needed to repeat your deployment process
-* URLs to the your deployed frontend.
+## Prerequisites
+Ensure you have the following installed:
+- [AWS CLI](https://aws.amazon.com/cli/)
+- [Terraform](https://developer.hashicorp.com/terraform/downloads)
+- [Docker](https://www.docker.com/products/docker-desktop)
+- [Jenkins](https://www.jenkins.io/download/)
+- Node.js (v16 recommended)
 
-# Evaluation
-You will be evaluated on the ease to replicate your infrastructure. This is a combination of quality of the instructions, as well as any scripts to automate the overall setup process.
-
-# Setup your environment
-Install nodejs. Binaries and installers can be found on nodejs.org.
-https://nodejs.org/en/download/
-
-For macOS or Linux, Nodejs can usually be found in your preferred package manager.
-https://nodejs.org/en/download/package-manager/
-
-Depending on the Linux distribution, the Node Package Manager `npm` may need to be installed separately.
-
-# Running the project
-The backend and the frontend will need to run on separate processes. The backend should be started first.
+## Repository Structure
 ```
-cd backend
-npm ci
-npm start
+repo/
+│── terraform/                # Terraform configuration files
+│── backend/                  # Backend service
+│   ├── Dockerfile            # Backend Dockerfile
+│   ├── index.js              # Express server
+│   ├── config.js             # Backend config
+│── frontend/                 # Frontend service
+│   ├── Dockerfile            # Frontend Dockerfile
+│   ├── src/config.js         # Frontend API config
+│── Jenkinsfile.backend       # Jenkins pipeline for backend
+│── Jenkinsfile.frontend      # Jenkins pipeline for frontend
+│── README.md                 # Documentation
 ```
-The backend should response to a GET request on `localhost:8080`.
 
-With the backend started, the frontend can be started.
+## Infrastructure Setup (Terraform)
+1. Navigate to the Terraform directory:
+   ```sh
+   cd terraform
+   ```
+2. Initialize Terraform:
+   ```sh
+   terraform init
+   ```
+3. Plan the deployment:
+   ```sh
+   terraform plan
+   ```
+4. Apply the changes:
+   ```sh
+   terraform apply -auto-approve
+   ```
+
+## Building & Pushing Docker Images
+1. **Login to AWS ECR**
+   ```sh
+   aws ecr get-login-password --region us-west-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-west-1.amazonaws.com
+   ```
+2. **Build & Push Backend Image**
+   ```sh
+   cd backend
+   docker build -t backend-app .
+   docker tag backend-app:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-west-1.amazonaws.com/backend-app:latest
+   docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-west-1.amazonaws.com/backend-app:latest
+   ```
+3. **Build & Push Frontend Image**
+   ```sh
+   cd frontend
+   docker build -t frontend-app .
+   docker tag frontend-app:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-west-1.amazonaws.com/frontend-app:latest
+   docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-west-1.amazonaws.com/frontend-app:latest
+   ```
+
+## CI/CD with Jenkins
+Jenkins pipelines are set up to automate deployments.
+
+### Backend Deployment
+1. Navigate to **Jenkins Dashboard**.
+2. Select **backend-service** job.
+3. Click **Build Now**.
+
+### Frontend Deployment
+1. Navigate to **Jenkins Dashboard**.
+2. Select **frontend-service** job.
+3. Click **Build Now**.
+
+## Accessing the Application
+- **Frontend ALB URL**: `http://<frontend-alb-url>`
+
+## Troubleshooting
+### **ALB Returns 504 Gateway Timeout**
+- Ensure ECS tasks are running (`aws ecs list-tasks --cluster <cluster-name>`).
+- Verify security groups allow traffic.
+- Check health status of target groups.
+
+### **CORS Issues**
+- Update `backend/config.js` and `frontend/src/config.js` to allow appropriate origins.
+
+## Cleanup
+To destroy all resources:
+```sh
+cd terraform
+terraform destroy -auto-approve
 ```
-cd frontend
-npm ci
-npm start
-```
-The frontend can be accessed at `localhost:3000`. If the frontend successfully connects to the backend, a message saying "SUCCESS" followed by a guid should be displayed on the screen.  If the connection failed, an error message will be displayed on the screen.
 
-# Configuration
-The frontend has a configuration file at `frontend/src/config.js` that defines the URL to call the backend. This URL is used on `frontend/src/App.js#12`, where the front end will make the GET call during the initial load of the page.
-
-The backend has a configuration file at `backend/config.js` that defines the host that the frontend will be calling from. This URL is used in the `Access-Control-Allow-Origin` CORS header, read in `backend/index.js#14`
-
-# Optional Extras
-The core requirement for this challenge is to get the provided application up and running for consumption over the public internet. That being said, there are some opportunities in this code challenge to demonstrate your skill sets that are above and beyond the core requirement.
-
-A few examples of extras for this coding challenge:
-1. Dockerizing the application
-2. Scripts to set up the infrastructure
-3. Providing a pipeline for the application deployment
-4. Running the application in a serverless environment
-
-This is not an exhaustive list of extra features that could be added to this code challenge. At the end of the day, this section is for you to demonstrate any skills you want to show that’s not captured in the core requirement.
+---
+**Author**: <your name>  
+**Last Updated**: March 2025
