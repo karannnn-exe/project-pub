@@ -17,6 +17,7 @@ pipeline {
             steps {
                 script {
                     sh """
+                    pwd
                     docker build -t ${IMAGE_NAME} .
                     """
                 }
