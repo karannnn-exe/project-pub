@@ -1,0 +1,54 @@
+pipeline {
+    agent any
+    environment {
+        AWS_DEFAULT_REGION = "us-west-1"
+        AWS_ACCOUNT_ID = "571600834960"
+        REPO_NAME = "frontend-app"
+        REPO_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+        IMAGE_NAME = "${REPO_URI}/${REPO_NAME}:latest"
+        ECS_CLUSTER = "project_dev_cluster_uw1"
+        ECS_SERVICE = "frontend-service"
+    }
+
+    stages {
+        stage("Build Docker Image") {
+            steps {
+                script {
+                    sh """
+                    cd frontend
+                    docker build -t ${IMAGE_NAME} .
+                    """
+                }
+            }
+        }
+
+        stage("Login & Push Docker Image to ECR") {
+            steps {
+                script {
+                    sh """
+                    aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${REPO_URI}
+                    docker push ${IMAGE_NAME}
+                    docker rmi -f ${IMAGE_NAME}
+                    """
+                }
+            }
+        }
+
+        stage("Force ECS Update") {
+            steps {
+                script {
+                    sh """
+                    aws ecs update-service --cluster ${ECS_CLUSTER} --service ${ECS_SERVICE} --force-new-deployment
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
+
